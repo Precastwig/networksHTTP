@@ -28,6 +28,8 @@ make run &
 
 testcase=1
 
+sleep 1
+
 while read url auth; do
    echo testcase $testcase is $url $auth 1>&3
    [[ -n $auth ]] && auth="-u $auth"

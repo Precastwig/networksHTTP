@@ -178,41 +178,56 @@ void *connection_handler(void *socket_desc) {
         send(sock, &headers, strlen(headers), 0);
         sprintf(headers, SERVERNAME);
         send(sock, &headers, strlen(headers), 0);
-        sprintf(headers, "%s", content);
+        sprintf(headers, "Content-Type: text/html\r\n");
+        send(sock, &headers, strlen(headers), 0);
+        char *htmlnotfound = "<HTML><TITLE>Not Found<TITLE><BODY> <P> The server could not fulfill your request because the resource specified does not exist</P></BODY></HTML>\r\n";
+        sprintf(headers, "Content-Length: %d\r\n", (int)sizeof(htmlnotfound));
         send(sock, &headers, strlen(headers), 0);
         sprintf(headers, "\r\n");
         send(sock, &headers, strlen(headers), 0);
-        sprintf(headers, "<HTML><TITLE>Not Found<TITLE>\r\n");
+        sprintf(headers, "\r\n");
         send(sock, &headers, strlen(headers), 0);
-        sprintf(headers, "<BODY> <P> The server could not fulfill your request\r\n");
+        sprintf(headers, "%s", htmlnotfound);
         send(sock, &headers, strlen(headers), 0);
-        sprintf(headers, "because the resource specified does not exist</P>\r\n");
-        send(sock, &headers, strlen(headers), 0);
-        sprintf(headers, "</BODY></HTML>\r\n");
-        send(sock, &headers, strlen(headers), 0);
-        pthread_mutex_unlock(&lock);
-        return 0;
     } else {
         //Send the headers
-        sprintf(headers, "HTTP/1.1 200 OK");
+        sprintf(headers, "HTTP/1.1 200 OK\r\n");
         send(sock, &headers, strlen(headers), 0);
         sprintf(headers, SERVERNAME);
         send(sock, &headers, strlen(headers), 0);
-        sprintf(headers, "Content-Type: text/html\r\n");
+		sprintf(headers, "%s", content);
+        send(sock, &headers, strlen(headers), 0);
+	//Get the size of the file
+	fseek(f, 0L, SEEK_END);
+	size_t sz = ftell(f);
+	fseek(f, 0L, SEEK_SET);
+		printf("Size of file: %d\r\n", (int)sz);
+		sprintf(headers, "Content-Length: %d\r\n", (int)sz);
+		send(sock, &headers, strlen(headers), 0);
+		sprintf(headers, "Connection: close\r\n");
         send(sock, &headers, strlen(headers), 0);
         sprintf(headers, "\r\n");
         send(sock, &headers, strlen(headers), 0);
-        char buf[1024];
+        char buf[sz];
+        //printf("%d\n", (int)sizeof(buf));
         //Send the file
-        fgets(buf, sizeof(buf), f);
-        while (!feof(f)) {
-            send(sock, buf, strlen(buf), 0);
-            fgets(buf, sizeof(buf), f);
+        fread(buf, sz, 1, f);
+        ssize_t n;
+        const char *p = buf;
+        printf("sending file\n");
+        while (sz > 0) {
+        	n = send(sock, p, sz, 0);
+        	printf("Sent: %d\n",(int)n);
+        	if (n <= 0) break;
+        	p += n;
+        	sz -= n;
         }
-        fclose(f);
-        pthread_mutex_unlock(&lock);
-        return 0;
+        //send(sock, buf, sizeof(buf), 0);
+        
     }
+    fclose(f);
+    pthread_mutex_unlock(&lock);
+    free(socket_desc);
     return 0;
     }
 }
